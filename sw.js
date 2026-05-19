@@ -1,4 +1,4 @@
-const CACHE = 'warzone-armory-v1';
+const CACHE = 'warzone-armory-v2';
 const ASSETS = [
   './',
   './index.html',
