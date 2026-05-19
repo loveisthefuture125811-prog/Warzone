@@ -11,7 +11,7 @@ const STATIC_ASSETS = [
   'https://fonts.googleapis.com/css2?family=VT323&display=swap'
 ];
 
-// Install: cache all assets fresh
+// Install: wipe old cache and cache all assets fresh
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.delete(CACHE)
@@ -21,7 +21,7 @@ self.addEventListener('install', e => {
   );
 });
 
-// Activate: wipe every old cache, take control immediately
+// Activate: wipe every cache, re-cache fresh, take control immediately
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
@@ -32,13 +32,30 @@ self.addEventListener('activate', e => {
   );
 });
 
+// Dev tool: run this in console to wipe and reload:
+// navigator.serviceWorker.controller.postMessage({type:'RESET_CACHE'})
+self.addEventListener('message', e => {
+  if (e.data && e.data.type === 'RESET_CACHE') {
+    caches.keys()
+      .then(keys => Promise.all(keys.map(k => caches.delete(k))))
+      .then(() => caches.open(CACHE))
+      .then(cache => cache.addAll(STATIC_ASSETS))
+      .then(() => self.clients.matchAll().then(clients =>
+        clients.forEach(client => {
+          client.postMessage({ type: 'CACHE_RESET_DONE' });
+          client.navigate(client.url);
+        })
+      ));
+  }
+});
+
 // Fetch: network-first for JS, cache-first for everything else
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   const isJS = url.pathname.endsWith('.js');
 
   if (isJS) {
-    // Network-first: always get fresh JS, update cache, fall back to cache
+    // Always fetch fresh JS, update cache, fall back to cache if offline
     e.respondWith(
       fetch(e.request)
         .then(res => {
